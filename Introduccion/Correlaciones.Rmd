@@ -1,0 +1,104 @@
+---
+title: "Correlación"
+author: "Paul Esker"
+output:
+  html_document:
+    df_print: paged
+    fontsize: 11pt
+    geometry: margin=1in
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Antecedentes
+
+El uso del análisis de correlaciones nos ayuda comprender las asociaciones entre diferentes variables (mediciones). En este ejemplo vamos a aplicar las opciones que existen en *tidyverse* para poder estimar los coeficientes de correlaciones para algunos de los métodos diferentes. También vamos a visualizr las correlaciones mediante una gráfica. Para este ejercio necesitamos los paquetes adicionales de *Hmisc* y de *corrplot*. También para la segunda parte del ejericio en donde se va a leer el conjunto de datos a R lo que necesitamos es el paquete de *readr*.
+
+
+```{r paquetes}
+
+library(tidyverse)
+library(Hmisc)
+library(corrplot)
+library(readr)
+
+```
+
+## Conjunto de datos
+
+Para leer los datos a R, necesitamos definir la carpeta local donde los datos están encontrados. Cada persona va a tener una ubicación diferente. Durante el taller lo que vamos a hacer es la opción de "Import Dataset" que está disponible dentro del área de "Ambiente" (o "Environment" en inglés).
+
+```{r datos}
+
+# Introducir el conjunto de datos a R. En esta situación se aplica la función read_csv y lo importante es definir la ubicación del archivo.
+  
+correlaciones <- read_csv("~/Documents/correlaciones.csv")
+correlaciones
+
+```
+
+## Correlación de Pearson
+
+Vamos a empezar con el primer tipo de correlación la cuál es la de Pearson. En esta situación se asume que todos los datos en el conjunto son de tipo cuantitativo. 
+
+No obstante y antes de hacer este análisis necesitamos "limpiar" la base de datos por ignorar la primera columna la que representa el indicador de algún tratamiento. De ahí lo que vamos a aplicar es la opción de *rcorr*. Con esta función se puede realizar dos tipos de correlaciones: (1) la del Pearson y (2) la del Spearman (método no paramétrico).
+
+Es importante tener presente que existen opciones diferentes para realizar el análisis de correlación. Estos métodos diferentes tienen algunas ventajas y desventajas por ejemplo, en algunos casos la función no le da el valor de P, es decir no proporiciona la medición para poder tomar una decisión sobre el significado de la asociación. En otros casos mientras que esta información está proporicionada no se puede utilizar algunos de los métodos para poder graficar y visualizar las asociaciones. Por lo tanto vamos a ver dos ejemplos de lograr estas diferentes ideas.
+
+
+```{r pearson}
+
+# Primero vamos a ignorar la primera columna del conjunto de datos
+
+ejemplo_cor <- correlaciones %>% 
+  select(-tratamiento) %>%
+  as.matrix() %>%
+  rcorr(type = "pearson")
+
+ejemplo_cor
+
+# Ahora vamos a utilizar la función de corrplot que se encuentra en el paquete corrplot para visualizar las asociaciones. Para poder
+
+ejemplo_cor2 <- correlaciones %>% 
+  select(-tratamiento) %>%
+  as.matrix() %>%
+  cor(method = "pearson")
+
+corrplot(ejemplo_cor2, method="number")
+corrplot(ejemplo_cor2, method="circle")
+
+```
+
+## Correlación de Spearman
+
+El método de Spearman es uno no paramétrico. 
+
+```{r spearman}
+
+# Primero vamos a ignorar la primera columna del conjunto de datos
+
+ejemplo_corB <- correlaciones %>% 
+  select(-tratamiento) %>%
+  as.matrix() %>%
+  rcorr(type = "spearman")
+
+ejemplo_corB
+
+# Ahora vamos a utilizar la función de corrplot que se encuentra en el paquete corrplot para visualizar las asociaciones. Para poder
+
+ejemplo_corB2 <- correlaciones %>% 
+  select(-tratamiento) %>%
+  as.matrix() %>%
+  cor(method = "spearman")
+
+corrplot(ejemplo_corB2, method="number")
+corrplot(ejemplo_corB2, method="circle")
+
+```
+
+## Resumen
+
+Se presentaron ejemplos diferentes en el uso de correlación tanto por métodos con base en el cálculo del coeficiente de correlación como mediante los métodos gráficos. Este es típicamente el primer paso para muchas personas en el desarrollo de un modelo. Es importante tener claro el patrón de la relación entre dos variables porque de vez en cuando se puede dar resultado cuya respuesta es de 0 pero por razón de que la relación no sea lineal. Siempre, siempre tomar en cuenta la biología del sistema porque esto le ayuda en las secciones que vienen. 

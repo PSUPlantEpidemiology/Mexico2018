@@ -1,0 +1,153 @@
+---
+title: "Introducción a métodos gráficos"
+author: "Paul Esker"
+output:
+  html_document:
+    df_print: paged
+    fontsize: 11pt
+    geometry: margin=1in
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Conjunto de datos
+
+En este ejericio introductorio vamos a utilizar el mismo conjunto de datos de *trigo*. Simplemente lo que vamos a hacer son algunos tipos de gráficas diferentes depende del número de observaciones. En cada paso la idea sería aplicar los conceptos que vienen del paquete de *ggplot2*.
+
+```{r paquetes}
+
+library(tidyverse)
+library(purrr)
+library(dplyr)
+library(magrittr)
+library(Hmisc)
+
+```
+
+
+```{r datos}
+
+# La codificación a continuación viene del documento, "Ejemplo introductorio"
+
+Tratamiento <- factor(rep(1:27, each=3))
+Fungicida <- factor(rep(1:9, each=9))
+Dosis <- factor(rep(1:3, each=3, times=9))
+Rep <-factor(rep(1:3, times=27))
+Incidencia <- c(3,4,5,0,2,3,0,5,5,5,4,3,3,2,4,5,4,5,5,7,5,0,7,5,6,5,4,0,5,5,0,4,0,0,3,2,0,5,5,0,4,5,5,4,5,0,2,5,5,5,2,5,5,4,3,5,4,5,5,5,5,5,0,5,4,5,3,5,0,0,5,4,0,5,2,3,5,5,0,4,2)
+Rendimiento <- c(4548,5326,4715,5129,5513,4642,5359,5133,4792,5265,5008,5304,5514,5531,5183,5412,5199,5491,5727,5437,5206,5452,5258,5280,5375,4825,5558,5535,5557,5692,5758,5285,5450,5185,5659,5759,5303,5049,5099,5658,5374,5335,5451,5581,5400,5439,5068,5085,5800,4904,5206,5947,4868,5126,5511,5266,5368,5662,5273,5274,5102,5450,5426,5726,5278,5581,5100,5335,5744,5396,5018,5626,6162,5548,5371,5232,5349,5264,5771,5408,5595)
+
+trigo<-data.frame(Tratamiento,Fungicida,Dosis,Rep,Incidencia,Rendimiento)
+
+```
+
+## Diagrama de caja y bigotes
+
+En el primer ejemplo vamos a hacer una gráfica que se llama *diagrama de caja y bigotes* (box-and-whisker plot en inglés). Este diagrama conforme de los siguientes componentes: (1) valor mínimo, (2) valor máximo, (3) los cuartiles 25%, 50%, 75%, y (4) el cálculo y la identificación de datos atípicos con based en el uso del rango intercuartílico. 
+
+```{r caja, echo=TRUE}
+
+# Ejemplo 1.
+# En el primer ejemplo lo que vamos a hacer son una seríe de gráficas simplemente para visualizar mejor el proceso involucrado en hacer gráficas de alta calidad con *ggplot2*
+
+ejemplo1 <- ggplot(data=trigo, aes(x=Dosis, y=Rendimiento))
+
+ejemplo1 + geom_boxplot()
+
+ejemplo1 + geom_boxplot() + ylab("Rendimiento (kg por ha)") +
+scale_y_continuous(limits=c(4500, 6500))
+
+ejemplo1 + geom_boxplot() + ylab("Rendimiento (kg por ha)") + geom_jitter()
+
+ejemplo1 + geom_boxplot() + 
+  ylab("Rendimiento (kg por ha)") +
+  stat_summary(fun.y=mean, geom="point", shape=21, size=5)
+
+ejemplo1 + geom_boxplot() + 
+  ylab("Rendimiento (kg por ha)") +
+  stat_summary(fun.y=mean, geom="point", shape=17, size=4) + 
+  theme(text=element_text(size=16))
+
+ejemplo1 + geom_boxplot() + ylab("Rendimiento (kg por ha)") +
+  xlab("Aplicación de Sn (etapa fenológica)") + 
+  stat_summary(fun.y=mean, geom="point", shape=17, size=4, colour="blue") + 
+  theme(text=element_text(size=16))+
+  scale_x_discrete(breaks=c("1","2","3"),labels=c("Testigo", "Nudo", "Bandera")) +
+  scale_y_continuous(limits=c(4500, 6500))
+
+```
+
+## Ejemplo de diagrama de barras
+
+En este ejemplo lo que vamos a ilustrar es la creación de un diagrama de barras en donde se incluyen barras de error. Para este ejemplo vamos a aplicar primero lo que hemos hecho en el ejemplo introductorio para resumir los datos por el factor de *dosis*. De ahí la gráfica se hace mediante las herramientas disponibles con el paquete *ggplot2*.
+
+```{r barra}
+
+# Ejemplo 2.
+# En este primer paso se agregó dos líneas adicionales para poder calcular los errores estándares. También en esta situación vamos a guardar el conjunto nuevo de datos a la memoría de R.
+
+dosis <- trigo %>% group_by(Dosis)
+
+dosis_resumen <- dosis %>% summarise(
+  Inc_media = mean(Incidencia),
+  Inc_sd = sd(Incidencia),
+  Inc_se = sd(Incidencia)/sqrt(n()),
+  Inc_cv = sd(Incidencia)/mean(Incidencia)*100,
+  Rend_media = mean(Rendimiento),
+  Rend_sd = sd(Rendimiento),
+  Rend_se = sd(Rendimiento)/sqrt(n()),
+  Rend_cv = Rend_sd/Rend_media*100 
+)
+
+dosis_resumen
+
+# Ahora vamos a hacer la gráfica de tal manera: (1) hacer las barras mediante la opción geom_col() utilizando la columna Rend_media, (2) agregar las barras de error de tipo +/- 2 se
+
+Rend_barras <- ggplot(dosis_resumen, aes(Dosis, Rend_media)) +
+  geom_col() +
+  geom_errorbar(aes(ymin=Rend_media - 2*Rend_se, ymax=Rend_media + 2*Rend_se), width=0.2) +
+  theme(text=element_text(size=16)) +
+  ylab("Rendimiento (kg por ha)") +
+  xlab("Aplicación de Sn (etapa fenológica)") +
+  scale_y_continuous(limits=c(0, 6000), breaks=c(0,1000,2000,3000,4000,5000,6000))
+
+Rend_barras
+
+```
+
+## Ejemplo de gráfica de dispersión
+
+```{r dispersión}
+
+# Ejemplo 3.
+# Diagrama de dispersión con información sobre la media y las barras de error
+
+ejemplo3<-ggplot(data=trigo, aes(x=Dosis, y=Rendimiento))
+
+ejemplo3 + geom_point()
+
+ejemplo3 +  geom_point() + 
+  stat_summary(fun.y=mean, geom="point", colour="red", size=3) 
+
+ejemplo3 +  
+  geom_point() + 
+  stat_summary(fun.y=mean, geom="point", colour="red", size=3) + 
+  stat_summary(fun.data=mean_cl_boot, geom="errorbar")
+
+ejemplo3 +  
+  geom_point() + 
+  ylab("Rendimiento (kg por ha)") +
+  xlab("Aplicación de Sn (etapa fenológica)") +
+  stat_summary(fun.y=mean, geom="point", colour="red",size=6, shape=17) + 
+  stat_summary(fun.data=mean_cl_boot, geom="errorbar") +
+  theme(text=element_text(size=16)) +
+  scale_x_discrete(breaks=c("1","2","3"),labels=c("Testigo", "Nudo", "Bandera")) +
+  scale_y_continuous(limits=c(4500, 6500), breaks=c(4500,5000,5500,6000,6500))
+
+```
+
+## Resumen
+
+En este ejercicio se presentó algunos ejemplos de tipos diferentes de gráficos que pueden ser considerados para explorar los datos obtenidos en una investigación. Durante las secciones que viene vamos a extender este concepto mediante ejemplos más enfocados en modelado. No siempre vamos a utilizar los métodos dados en *ggplot2* debido a que mucho depende en lo que es el estudio y la necesidad de crear un gráfico más avanzado.
