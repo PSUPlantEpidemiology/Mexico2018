@@ -1,0 +1,153 @@
+---
+title: "Regresión polinómica"
+author: "Paul Esker"
+output:
+  html_document:
+    df_print: paged
+    fontsize: 11pt
+    geometry: margin=1in
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Antecedentes
+
+Para muchos de nuestros ensayos, por ejemplo, la cantidad de nitrógeno y el rendimiento, sabemos que la relación no sería lineal sino se representará una forma no lineal. Uno de los ejemplos más comúnes es el de la regresión cuadrática en donde la variable dependiente se incrementará hasta un punto en el proceso, es decir por ejemplo que el rendimiento se sube hasta alguna concentración de la variable independiente, y de ahí la variable dependiente se reducirá debido a un efecto negativo, entre otros factores. Típicamente y desde el punto de vista de agronomía se puede interpretar esta relación de tal manera: "echar" más materia primera (nitrogeno, etc.) no ayuda mejor la productivdad del cultivo en estudio.
+
+La forma general pensar en este tipo de relación: se ajuste una relación entre la variable indendiente, $x$, y la respuesta esperada, $E(y|x)$. 
+
+Muy important con este tipo de análisis es tener presente que depende del tipo de "software" hay que verificar como se hace dicho análisis porque se sabe que hay una colinealidad entre las variables, por ejemplo el valor de $X$ y de $X^2$. En este ejemplo vamos a ver este asunto y los métodos para superarlo.
+
+```{r paquetes}
+
+library(tidyverse)
+library(Hmisc)
+library(corrplot)
+library(readr)
+library(HH)
+library(car)
+
+```
+
+## Datos
+
+En este ejemplo lo que tenemos es la siguiente información:
+
+* Densidad = densidad de siembra (número de plantas por $m^2$)
+* Rendimiento = cantidad de biomasa 
+
+```{r datos}
+
+densidad <- rep(c(10,20,30,40,50), each=3)
+rendimiento <- c(12.2, 11.4, 12.4, 16, 15.5, 16.5, 18.6, 20.2, 18.2, 17.6, 19.3, 17.1, 18, 16.4, 16.6)
+
+densidades <- data.frame(densidad, rendimiento)
+
+```
+
+## Regresión lineal
+
+Al principio vamos a realizar una regresión lineal para ver lo de la relación y si el modelo se ajuste bien a la relación observada.
+
+```{r lineal}
+
+modelo1 <- lm(rendimiento~densidad)
+anova(modelo1)
+summary(modelo1)
+
+plot(modelo1) # Se puede apreciar que el modelo no se ajuste bien
+
+ci.plot(modelo1) # Debería ser obvio que la línea de tendenica no se refleja la medición muy bien; la función es para graficar una relación lineal
+
+```
+
+## Regresión cuadrática 1
+
+Ahora vamos a realizar una regresión cuadrática. Para este ejemplo vamos a ejecutar el mismo análisis ya hecho pero considerando la variable de *densidad* de manera de $densidad$ + $densidad^2$.
+
+```{r cuadrática1}
+
+# Primero definir la densidad^2
+densidad2<-densidad^2
+
+modelo2<-lm(rendimiento~densidad + densidad2)
+
+# Significado
+anova(modelo2)
+summary(modelo2)
+
+# Supuestos
+plot(modelo2)
+
+# Comparación entre la primera regresión y la segunda para la medición de la distancia de Cook
+plot(modelo1, which=4) #DISTANCIA DE COOK
+plot(modelo2, which=4) #DISTANCIA DE COOK
+
+# Prueba de F entre el modelo 1 y el modelo 2
+anova(modelo1, modelo2)
+
+# Algunas herramientas para revisar los supuestos en más detalle. 
+influence.measures(modelo2) # una función general en donde se crea la base para las mediciones a continuación
+dffits(modelo2)
+dfbeta(modelo2)
+covratio(modelo2)
+cooks.distance(modelo2)
+vif(modelo2) # 15.66 es el valor, valores mayores a 10 típicamente indica que hay una colinealidad alta
+```
+
+## Regresión cuadrática 2
+
+Debido al resultado que indicó que había alta colinealidad lo que vamos a hacer ahora es centrar la variable de densidad para realizar el nuevo modelo. La función *scale* nos permite escalar la densidad considerando la media (hay dos formas por lo general. Primero es considerando un valor centrado tomándose en cuenta solamente la media y en el otro caso es tomar en cuenta también la desviación estándar obtenido para la primera regresión cuadrática 
+```{r}
+# Primero vamos a estandardizar la densidad
+
+# Sustraer la media, escala=falso significa no tomar en cuenta la desviación estándar
+den_centrada<-scale(densidad, center=TRUE, scale=FALSE) 
+
+# Lo mismo hecho "a mano"
+densidad-mean(densidad)
+
+# Crear la variable de den_centrada2
+den_centrada2 <- den_centrada^2
+
+plot(den_centrada, den_centrada2)
+
+# Regresión
+
+modelo3<-lm(rendimiento~den_centrada+den_centrada2)
+anova(modelo3)
+summary(modelo3)
+
+# Supuestos
+plot(modelo3)
+
+# Comparación entre el modelo original y el actualizado
+anova(modelo1, modelo3)
+
+# Colinealidad?
+dffits(modelo3)
+dfbeta(modelo3)
+covratio(modelo3)
+cooks.distance(modelo3)
+vif(modelo3) #Ahora el valor es de 1
+
+```
+
+## Comparación entre la forma de *densidad*
+
+```{r comparación}
+
+cor(densidad, densidad2) #correlación que se considera muy alta = colinealidad
+cor(den_centrada, den_centrada2) #ya no hay  correlación
+
+```
+
+## Resumen y consideraciones
+
+Lo que no se hizo en este ejercicio fue las predicciones para poder graficar la relación y el modelo. Se puede realizar este ejercicio fuera de la clase porque se aplican los mismos conceptos con el uso de la función *predict*. 
+
+Por último en este ejercicio se demostró que es importante tener presente que en nuestro ejemplo uno de los conceptos más importantes fue la demonstración de que el uso de un término cuadrático no se elimina necesariamente los asuntos de colinealidad. Es importante revisar cualquier *paquete* o *software* cuando hay necesidad de realizar este tipo de análisis. En el ejercicio que viene vamos a explorar modelos más complejos entonces los conceptos de colinealidad son importantes a considerar.
+

@@ -1,0 +1,182 @@
+---
+title: "Regresión Múltiple"
+author: "Paul Esker"
+output:
+  html_document:
+    df_print: paged
+    fontsize: 11pt
+    geometry: margin=1in
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Antecedentes
+
+Para este ejercio se realizará un análisis de regresión múltiple. En este tipo de ejercio la idea es examinar la forma de una relación más compleja, por ejemplo que la respuesta depende de dos o tres factores diferentes cada uno que contribuya algo a la relación. Esto significa que cada factor explica algo sobre la variabilidad observada en la variable dependiente. 
+
+Algunas de las formas de una regresión incluyen:
+
+$Y = \beta_0 + \beta_1{X_1} + \beta_2{X_2} + \epsilon$
+
+$Y = \beta_0 + \beta_1{X_1} + \beta_2{X_2} + \beta_3{X_1}{X_2} + \epsilon$
+
+Algo muy importante tener presente es que en este tipo de análisis el modelo siempre se mejora cuando se agregan factores adicionales. El reto es determinar hasta que punto las mejoras en el modelo "vale la pena". Es algo que vamos a discutir durante los demás ejemplos del curso.
+
+```{r paquetes}
+
+library(tidyverse)
+library(Hmisc)
+library(corrplot)
+library(readr)
+library(HH)
+library(car)
+library(scatterplot3d)
+
+```
+
+## Datos y análisis exploratorio
+
+El conjunto de datos viene de un estudio en donde se midió el número de áfidos de acuerdo a la temperatura promedio y humedad relativa. Los datos pertenecen a lotes de muestreo diferentes y vamos a utilizar la información sobre los lotes para estudiar el comportamiento entre las variables. 
+
+La gran pregunta es si hubiese alguna relación entre uno, dos, o más de estos factores. La última parte de la frase anterior significa si existiera alguna interacción entre las dos variables independientes.
+
+```{r datos}
+
+lote <- c(1:34)
+afidos <- c(61, 77, 87, 93, 98, 100, 104, 118, 102, 74, 63, 43, 27, 19, 14, 23, 30, 25, 67, 40, 6, 21, 18, 23, 42, 56, 60, 59, 82, 89, 77, 102, 108, 97)
+temperatura <- c(21, 24.8, 28.3, 26, 27.5, 27.1, 26.8, 29, 28.3, 34, 30.5, 28.3, 30.8, 31, 33.6, 31.8, 31.3, 33.5, 33, 34.5, 34.3, 34.3, 33, 26.5, 32, 27.3, 27.8, 25.8, 25, 18.5, 26, 19, 18, 16.3)
+humedad <- c(57,48, 41.5, 56, 58, 31, 36.5, 41, 40, 25, 34, 13, 37, 19, 20, 17, 21, 18.5, 24.5, 16, 6, 26, 21, 26, 28, 24.5, 39, 29, 41, 53.5, 51, 48, 70, 79.5)
+
+afidos_base <- data.frame(lote, afidos, temperatura, humedad)
+
+# Análisis exploratorio
+summary(afidos_base)
+cor(afidos_base[,2:4])
+plot(afidos_base[,2:4]) # Matriz de gráficas
+pairs(afidos_base[,2:4]) # Otra manera de hacer lo mismo
+
+```
+
+## Regresiones lineales
+
+```{r lineal}
+
+# Factor = temperatura (X)
+
+modelo1<-with(afidos_base, lm(afidos~temperatura))
+anova(modelo1)
+summary(modelo1)
+plot(modelo1)
+
+# Supuestos = valores, modelo2
+
+rstudent(modelo1)
+dfbetas(modelo1)
+dffits(modelo1)
+covratio(modelo1)
+cooks.distance(modelo1)
+
+# Factor = humedad (X)
+
+modelo2<-with(afidos_base, lm(afidos~humedad))
+anova(modelo2)
+summary(modelo2)
+plot(modelo2)
+
+# Supuestos = valores, modelo2
+
+rstudent(modelo2)
+dfbetas(modelo2)
+dffits(modelo2)
+covratio(modelo2)
+cooks.distance(modelo2)
+
+```
+
+## Regresión múltiple aditiva
+
+La forma de este modelo es de:
+
+$$áfidos = intercepto + temperatura + humedad + error$$ 
+
+```{r temphum}
+
+modelo3<-with(afidos_base, lm(afidos~temperatura+humedad))
+anova(modelo3)
+summary(modelo3)
+plot(modelo3)
+
+```
+
+## Visualizando las relaciones para un modelo más complejo
+
+Todavía no está totalmente claro si el modelo aditivo con los dos factores es mejor. Antes de meternos a otra regresión primero vamos a volver a visualizar las relaciones para poder tratar de comprender mejor lo que está ocurriendo. La razón de hacer esta pausa en el análisis es que nos intersa saber si hubiese algunas obervaciones intersantes o si la relación entre el número de áfidos con los dos factores tiene alguna interacción, es decir si los dos factores independientes interactuan de alguna manera.
+
+```{r visualizar}
+
+# Considerando el factor de temperatura, se agrega al gráfico la información sobre los lotes
+temp <- ggplot(afidos_base, aes(x=temperatura, y=afidos, label=lote))
+temp + geom_point() + geom_text(hjust=0.5, nudge_y=3) #Parece que algunos lotes están relacionados, por ejemplo: 30, 32, 33, 34; también los de 3 a 9
+
+
+# Considerando el factor de humedad, se agrega al gráfico la información sobre los lotes
+temp2 <- ggplot(afidos_base, aes(x=humedad, y=afidos, label=lote))
+temp2 + geom_point() + geom_text(hjust=0.5, nudge_y=3) #La agrupación se ve un poco diferente: 6 a 9, sí; 14 a 18 (más algunos otros)
+
+# Y en 3-dimensiones? Esto viene del paquete *scatterplot3d*
+
+with(afidos_base, scatterplot3d(temperatura, humedad, afidos, angle=75)) # Vamos a dejar las etiquetas por el momento
+
+```
+
+## Regresión múltiple con interacción
+
+Debido a que parece que las relaciones entre los números de áfidos y los factores de temperatura y de humedad son diferentes vamos a explorar un modelo que contiene la interacción entre estos dos factores. Biológicamente hay que pensar en lo que significa esta relación pero por el momento la idea es ver si se puede mejorar el ajuste del modelo.
+
+```{r interacción}
+
+modelo4 <- with(afidos_base, lm(afidos ~ temperatura + humedad + temperatura:humedad))
+
+anova(modelo4)
+summary(modelo4) # El R^2 mejoró. Hay que ver este resultado considerando los demás modelos.
+
+plot(modelo4)
+
+# Comparaciones entre los diferentes modelos para tomar una decisión
+anova(modelo1, modelo3) # modelo 3 fue mejor (tenía el factor de humedad agregado)
+anova(modelo2, modelo3) # modelo 2 fue mejor (sólo con el factor de humedad)
+anova(modelo2, modelo4) # puede ser que la interacción mejoró el modelo
+anova(modelo3, modelo4) # la intearcción mejoró el modelo
+
+# Todavía se puede revisar los supuestos en más detalle para tomar la decisión final
+```
+
+## Predicciones
+
+Para cerrar la discusión sobre los modelos de regresión múltiple vamos a realizar algunas predicciones de acuerdo al modelo 4.
+
+```{r predicciones}
+
+# Considerando los valores promedios de temperatura y de humedad
+mean(temperatura)
+mean(humedad)
+
+observacion <- data.frame(temperatura=mean(temperatura), humedad=mean(humedad))
+
+predict(object=modelo4, newdata=observacion, interval="confidence")
+predict(object=modelo4, newdata=observacion, interval="predict")
+
+# Para todas las observaciones
+intervalos<-predict(modelo4, interval="confidence")
+intervalos
+
+predicciones<-predict(modelo4, interval="predict")
+predicciones
+```
+
+## Resumen
+
+El objetivo de este ejercio fue dar una introducción de regresión múltiple cuando hay una serie de variables independientes que pueden explicar aspectos diferentes de la variabilidad observada en la variable dependiente. También al pensar de tal manera esto le proporciona una avenida de considerar las interacciones escondidas entre las diversas variables medidas en muchas de nuestras investigaciones, un concepto importante para análisis estadísticos más complejos o de los métodos multivariantes. 

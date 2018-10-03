@@ -1,0 +1,215 @@
+---
+title: "Regresión 1"
+author: "Paul Esker"
+output:
+  html_document:
+    df_print: paged
+    fontsize: 12pt
+    geometry: margin=1in
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Antecedentes
+
+En esta parte del taller vamos a empezar con los primeros modelos con base en regresión. En esta situación el objetivo es relacionar una variable dependiente con una otra independiente. Esto significa que tenemos la idea que la variable independiente explique algo sobre la variable dependiente. Por ejemplo, uno puede pensar en una relación entre la altura de una planta con algún indíce de crecimiento de hojas. 
+
+La forma para considerar el modelo es simplemiente $$Y = f(X) + e$$
+
+En donde:
+
+* Y = variable dependiente,
+* f(X) = una función que relaciona la variable independiente con la dependiente,
+* e = error, la forma que depende del tipo de supuesto (por ejemplo, para una regresión lineal el error se está asumido a ser normal).
+
+Para el primer ejemplo de regresión lineal lo que se pretende hacer es el análisis "más" completo lo cual significa una revisión de los supuestos y las predicciones. En algunos ejemplos que vienen se van a ejecutar los análisis de una manera un poco más sencilla para poder enfocarse más en la razón de utilizar aquella herramienta.
+
+```{r paquetes}
+
+library(tidyverse)
+library(Hmisc)
+library(corrplot)
+library(readr)
+library(HH)
+library(car)
+
+```
+
+## Datos
+
+En este ejemplo vamos a introducir los datos "a mano" como los ejemplos anteriores. Los datos pertanecen a un estudio de maní en donde se trató de relacionar el porcentaje de limpieza de granos con la concentración de alfatoxina en *ppb* (ug por kg). 
+
+Las dos variables son:
+
+* limpia = porcentaje de granos limpios de maní 
+* alfatoxina = concentración de alfatoxina
+
+
+```{r pressure, echo=FALSE}
+
+limpia <- c(99.97, 99.94, 99.86, 99.98, 99.93, 99.81, 99.98, 99.91, 99.88, 99.97, 99.97, 99.8, 99.96, 99.99, 99.86, 99.96, 99.93, 99.79, 99.96, 99.86, 99.82, 99.97, 99.99, 99.83, 99.89, 99.96, 99.72, 99.96, 99.91, 99.64, 99.98, 99.86, 99.66, 99.98)
+aflatoxina <- c(3, 18.8, 46.8, 4.7, 18.9, 46.8, 8.3, 21.7, 58.1, 9.3, 21.9, 62.3, 9.9, 22.8, 70.6, 11, 24.2, 71.1, 12.3, 25.8, 71.3, 12.5, 30.6, 83.2, 12.6, 36.2, 83.6, 15.9, 39.8, 99.5, 16.7, 44.3, 111.2, 18.8)
+
+mani <- data.frame(limpia, aflatoxina)
+head(mani)
+
+```
+
+## Análisis exploratorio y gráfico
+
+```{r preliminar}
+
+mean(aflatoxina)
+sd(aflatoxina)
+sd(aflatoxina)/mean(aflatoxina)*100
+
+mean(limpia)
+sd(limpia)
+sd(limpia)/mean(limpia)*100
+
+cor(limpia, aflatoxina)
+rcorr(limpia, aflatoxina)
+
+```
+
+## Regresión lineal
+
+```{r regresión}
+
+# Vamos a visualizar la relación entre las dos variables 
+with(mani, plot(x=limpia, y=aflatoxina, xlim=c(99.5,100), ylim=c(0,120), pch=10)) 
+
+# Ejecutar la función lm() para realizar la regresión lineal
+
+regresion_lineal <- with(mani, lm(aflatoxina~limpia)) #Formato, Y <- X
+anova(regresion_lineal) #Tabla de ANDEVA tradicional para ver lo del significado
+summary(regresion_lineal) #Esta versión proporciona más detalles, ver el documento para los componentes a interpretar
+
+```
+
+Bueno se ve como existe una relación significativa. Ahora lo que vamos a aprender es como podríamos extraer información de los resultados con el fin de realizar una prueba de hipótesis, por ejemplo, sobre la pendiente porque de vez en cuando tenemos información (de la literatura, otros ensayos, etc.) que indica que la pendiente es igual a un valor específico.
+
+```{r pruebas}
+
+### Ejemplo: digamos que nos interesa compara la pendiente al valor de -220, lo cual significa que para cada 1 % de cambio en el porcentaje de semilla limpia la concentración de aflatoxin se reducirá en un 220 ug por kg
+
+# Primero, para ver los coeficientes, el intercepto, y la pendiente
+regresion_lineal$coef
+regresion_lineal$coef[1]
+regresion_lineal$coef[2]
+
+# Los errores asociados con cada uno de los coeficientes
+coeficientes <- summary(regresion_lineal)
+names(coeficientes)
+coeficientes$coefficients
+
+# Al ver solamente cada paramétro estimado y sus errores respetivos 
+coeficientes$coefficients[1,1]
+coeficientes$coefficients[1,2]
+coeficientes$coefficients[2,1]
+coeficientes$coefficients[2,2]
+
+# Ahora se define la pendiente para la prueba de hipótesis
+B1 <- -220
+
+# Para realizar la prueba lo que necesitamos definir es el paramétro y su propio término de error
+# abs = valor absoluto
+
+prueba_b1<-abs((coeficientes$coefficients[2,1]-B1)/coeficientes$coefficients[2,2])
+prueba_b1
+
+## Prueba de dos colas con 32 grados de libertad = error 
+2*pt(q=prueba_b1, df=32, lower.tail=FALSE) ##resulta?
+
+```
+
+## Supuestos sobre el modelo
+
+```{r supuestos}
+
+## Revisión de los supuestos primarios mediante la opción de plot()
+plot(regresion_lineal)
+
+## Si le interesaría controlar los gráficos se puede ejecutar lo siguiente:
+par(mfrow=c(1,1))
+plot(regresion_lineal, which=1)
+plot(regresion_lineal, which=2)
+plot(regresion_lineal, which=3)
+plot(regresion_lineal, which=4)
+plot(regresion_lineal, which=5)
+plot(regresion_lineal, which=6)
+
+```
+
+## Estimaciones y predicciones
+
+Típicamente nos interesa realizar una predicción con base en la ecuación estimada, o por lo menos estudiar el comportamiento de los resultados. A continuación vamos a ver el uso de la función *predict()*, así como la diferencia entre el intervalo de confianza para algún resultado y si uno estaría intersado en realizar un predicción para otro conjunto de datos del mismo tipo, como ejemplo.
+
+
+```{r predicciones}
+
+# Necesitamos definir el valor de interés: para la primera observación el valor de semilla limpia fue de 99.98
+
+observacion <- data.frame(limpia=99.68)
+
+predict(object=regresion_lineal, newdata=observacion, interval="confidence")
+predict(object=regresion_lineal, newdata=observacion, interval="predict")
+
+# Se puede realizar lo mismo para cada uno de los valors de semilla limpia
+intervalos<-predict(regresion_lineal, interval="confidence")
+intervalos
+
+predicciones<-predict(regresion_lineal, interval="predict")
+predicciones
+
+# Por último en esta sección cuando hay interés en realizar este tipo de predicción para diferentes valores, lo que se hace es lo siguiente:
+observaciones <- data.frame(limpia=c(99.5, 99.6, 99.7, 99.8))
+predict(object=regresion_lineal, newdata=observaciones, interval="confidence")
+predict(object=regresion_lineal, newdata=observaciones, interval="predict")
+
+```
+
+## Materia adicional
+
+El paquete *HH* tiene varias funciones interesantes que podemos utilizar para una regresión. En esta parte vamos a ver algunos ejemplos de aquellas.
+
+```{r HH}
+
+# Visulizar la regresión grafícamente 
+ci.plot(regresion_lineal)
+
+# Otras herramientas para estudiar los supuestos
+
+# Prueba de datos atípicos con base en el ajuste de Bonferroni
+outlierTest(regresion_lineal) 
+# Gráfica de cuantil-cuantil de los residuos de Student
+qqPlot(regresion_lineal) 
+# Gráfica de influencia en el que el tamaño del círculo es proporcional a la distancia de Cook
+influencePlot(regresion_lineal) 
+# Prueba de homoscedasticidad 
+ncvTest(regresion_lineal)
+# Método para verificar si haya dependencia en el modelo, resulta en esta caso que una transformación de los datos será recomendada
+spreadLevelPlot(regresion_lineal) 
+# Método para verificar si haya evidencia de una relación no lineal
+crPlots(regresion_lineal)
+
+```
+
+## Resumen
+
+En este ejercicio se pretendió dar una introducción a los conceptos de regresión lineal y los métodos que pueden ser aplicados para estudiar el comportamiento de dicha relación. Con esta base los ejercicios que vienen en las demás secciones se estudiarán otros conceptos de regresión y de modelado. En algunos ejemplos se extenderá lo que fue presentado en este ejericio mientras tanto en otros se estudiarán conceptos de modelado que depende mucho de la biología y de una relación no lineal. 
+
+## Práctica
+
+Para poner en práctica los conceptos ya aprendidos tenemos otra base de datos de un estudio de gallinas y lisina. 
+```{r práctica}
+
+preso<-c(14.7, 17.8, 19.6, 18.4, 20.5, 21.1, 17.2, 18.7, 20.2, 16.0, 17.8, 19.4)
+lisina<-c(0.09, 0.14, 0.18, 0.15, 0.16, 0.23, 0.11, 0.19, 0.23, 0.13, 0.17, 0.21)
+
+```
+
+

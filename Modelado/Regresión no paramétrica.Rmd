@@ -1,0 +1,210 @@
+---
+title: "Regresión no paramétrica"
+author: "Paul Esker"
+output:
+  html_document:
+    df_print: paged
+    fontsize: 11pt
+    geometry: margin=1in
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Antecedentes
+
+En este ejercicio lo que vamos a hacer es una estimación de la relación entre variables que tienen tal forma:
+
+$$f(x) = E[Y|X=x]$$
+
+Pero que falta alguna especificación del tipo de función:
+
+$$Y = f(X) + e$$
+Entonces se tiene que considerar cuál sería el mejor método para poder realizar la estimación de los paramétros del modelo. En este ejercicio el objetivo es estudiar los métodos no paramétricos los cuales incluyen:
+
+* Medias móviles = calcular la media de *Y* en una "ventana" alrededor de cada valor de *X*
+* Medias móviles ponderadas = suavización kernel: ponderar los datos en función de la distancia
+* Regresión polinómica local: ajustar el polinomio por mínimos cuadrados para las observaciones en una ventana local (ponderados por distancia)
+
+## Paquetes
+
+```{r}
+
+library(tidyverse)
+library(Hmisc)
+library(corrplot)
+library(readr)
+library(HH)
+library(car)
+library(scatterplot3d)
+library(leaps)
+
+```
+
+## Datos
+
+Para este ejemplo se utilizará el conjunto de datos de *emisiones*. Estos datos  representan las emisiones de $CO~2$ en diferentes paises desde México hasta Panamá. Los datos fueron obtenidos por un periodo de 21 años y están estandardizados al área de producción agrícola. Para el ejercicio vamos a utilizar los de Costa Rica entonces primero el objetivo es explorar los métodos de "extraer" esta información del conjunto de datos original. Para esta parte del ejercicio se aplica la codificación que existe con el uso de *tidyverse* en especial *dplyr*.
+
+
+```{r datos}
+
+emisiones <- read_csv("~/Documents/emisiones.csv")
+head(emisiones)
+
+# Resumen rápido (ver el documento Ejemplo introductorio.Rmd)
+
+resúmenes <- emisiones %>% group_by(pais)
+resúmenes %>% str()
+resúmenes %>% summarise(
+  Em_media = mean(co2_area),
+  Em_sd = sd(co2_area),
+  Em_cv = sd(co2_area)/mean(co2_area)*100,
+  Em_max = max(co2_area),
+  Em_min = min(co2_area)
+)
+
+# Crear una base para el ejercico en donde el país es de Costa Rica
+costa_rica <- filter(emisiones, pais=="CostaRica")
+head(costa_rica)
+
+```
+
+## Método de loess 1
+
+Este es el método de regresión polinómica local.
+
+```{r loess}
+
+# Cómo se ve la relación?
+
+CR <- ggplot(data=costa_rica, aes(x=ano, y=co2_area))
+
+CR + geom_point()
+CR + geom_point() + geom_line()
+
+# Método de loess
+
+cr_np1 <- with(costa_rica, loess(co2_area ~ ano , span=0.75))
+summary(cr_np1)
+
+crnp1_pred <- predict(cr_np1, data.frame(ano=seq(1,21,0.5)))
+pred1 <- data.frame(ano=seq(1,21,0.5), crnp1_pred)
+
+# Graficamente
+ej1 <- ggplot() 
+ej1 +
+  geom_point(data=costa_rica, aes(x=ano, y=co2_area)) +
+  geom_line(data=costa_rica, aes(x=ano, y=co2_area), lty=1) +
+  geom_line(data=pred1, aes(x=ano, y=crnp1_pred), lty=2)
+
+```
+
+## Modificar la forma de la línea en loess
+
+Ahora vamos a ver algunos ejemplos en donde se cambia la forma de la línea para ver si se ve mejor lo de la tendencia.
+
+```{r loess2}
+
+# Forma de línea = span=0.5
+cr_np2 <- with(costa_rica, loess(co2_area ~ ano , span=0.5))
+crnp2_pred <- predict(cr_np2, data.frame(ano=seq(1,21,0.5)))
+pred2 <- data.frame(ano=seq(1,21,0.5), crnp2_pred)
+
+ej1 <- ggplot() 
+ej1 +
+  geom_point(data=costa_rica, aes(x=ano, y=co2_area)) +
+  geom_line(data=costa_rica, aes(x=ano, y=co2_area), lty=1) +
+  geom_line(data=pred1, aes(x=ano, y=crnp1_pred), lty=2, lwd=1.5) +
+  geom_line(data=pred2, aes(x=ano, y=crnp2_pred), lty=3, lwd=1.5)
+
+# Forma de línea = span=0.25
+cr_np3 <- with(costa_rica, loess(co2_area ~ ano, span=0.25))
+crnp3_pred <- predict(cr_np3, data.frame(ano=seq(1,21,0.5)))
+pred3 <- data.frame(ano=seq(1,21,0.5), crnp2_pred)
+
+ej1 <- ggplot() 
+ej1 +
+  geom_point(data=costa_rica, aes(x=ano, y=co2_area)) +
+  geom_line(data=costa_rica, aes(x=ano, y=co2_area), lty=1) +
+  geom_line(data=pred1, aes(x=ano, y=crnp1_pred), lty=2, lwd=1.5) +
+  geom_line(data=pred2, aes(x=ano, y=crnp2_pred), lty=3, lwd=1.5) +
+  geom_line(data=pred3, aes(x=ano, y=crnp3_pred), lty=4, lwd=1.5)
+
+```
+
+## Método de splines
+
+En el ejemplo que vien vamos a utilizar la opción de *smooth.spline()* mediante las opciones por defecto. Con este método se puede cambiar el parámetro de suavización. Es método que se basa en la validación cruzada para poder definir este parámetro.
+
+```{r spline}
+
+# Se aplica por ahora las opciones por defecto
+cr_spline <- with(costa_rica, smooth.spline(x=ano, y=co2_area))
+cr_spline
+summary(cr_spline)
+
+crsp_pred <- predict(cr_spline, data.frame(ano=seq(1,21,0.5)))
+pred4 <- data.frame(ano=seq(1,21,0.5), crsp_pred)
+
+# Vamos a comparar este método con el resultado de loess()
+ej1 <- ggplot() 
+ej1 +
+  geom_point(data=costa_rica, aes(x=ano, y=co2_area)) +
+  geom_line(data=costa_rica, aes(x=ano, y=co2_area), lty=1) +
+  geom_line(data=pred1, aes(x=ano, y=crnp1_pred), lty=2, lwd=1.5) +
+  geom_line(data=pred4, aes(x=ano, y=ano.2), lty=4, lwd=1.5)
+```
+
+## Cambiar el parámetro de suavizado
+
+Ahora vamos a ver diferentes resultados de la forma de la línea cuando se cabia el parámetero de suavizado. 
+
+```{r parámetros}
+
+cr25 <- with(costa_rica, smooth.spline(x=ano, y=co2_area, spar=0.25))
+pred25 <-  data.frame(ano=seq(1,21,0.5), pred=(predict(cr25, data.frame(ano=seq(1,21,0.5)))))
+
+cr35 <- with(costa_rica, smooth.spline(x=ano, y=co2_area, spar=0.35))
+pred35 <-  data.frame(ano=seq(1,21,0.5), pred=(predict(cr35, data.frame(ano=seq(1,21,0.5)))))
+
+cr45 <- with(costa_rica, smooth.spline(x=ano, y=co2_area, spar=0.45))
+pred45 <-  data.frame(ano=seq(1,21,0.5), pred=(predict(cr45, data.frame(ano=seq(1,21,0.5)))))
+
+cr55 <- with(costa_rica, smooth.spline(x=ano, y=co2_area, spar=0.55))
+pred55 <-  data.frame(ano=seq(1,21,0.5), pred=(predict(cr55, data.frame(ano=seq(1,21,0.5)))))
+
+cr65 <- with(costa_rica, smooth.spline(x=ano, y=co2_area, spar=0.65))
+pred65 <-  data.frame(ano=seq(1,21,0.5), pred=(predict(cr65, data.frame(ano=seq(1,21,0.5)))))
+
+cr75 <- with(costa_rica, smooth.spline(x=ano, y=co2_area, spar=0.75))
+pred75 <-  data.frame(ano=seq(1,21,0.5), pred=(predict(cr75, data.frame(ano=seq(1,21,0.5)))))
+
+cr85 <- with(costa_rica, smooth.spline(x=ano, y=co2_area, spar=0.85))
+pred85 <-  data.frame(ano=seq(1,21,0.5), pred=(predict(cr85, data.frame(ano=seq(1,21,0.5)))))
+
+ej1 <- ggplot() 
+ej1 +
+  geom_point(data=costa_rica, aes(x=ano, y=co2_area)) +
+  geom_line(data=costa_rica, aes(x=ano, y=co2_area), lty=1) +
+  geom_line(data=pred25, aes(x=ano, y=pred.ano.1), lty=2, lwd=1.2) +
+  geom_line(data=pred35, aes(x=ano, y=pred.ano.1), lty=3, lwd=1.2) +
+  geom_line(data=pred45, aes(x=ano, y=pred.ano.1), lty=4, lwd=1.2) +
+  geom_line(data=pred55, aes(x=ano, y=pred.ano.1), lty=5, lwd=1.2) +
+  geom_line(data=pred65, aes(x=ano, y=pred.ano.1), lty=6, lwd=1.2) +
+  geom_line(data=pred75, aes(x=ano, y=pred.ano.1), lty=2, lwd=1.3) +
+  geom_line(data=pred85, aes(x=ano, y=pred.ano.1), lty=3, lwd=1.3) 
+  
+```
+
+## Última palabra
+
+Para cerrar la discusión sobre la regresión no paramétrica es natural considerar la pregunta, ¿cuáles son los métodos que se pueden utilizar para el control de suavizado?
+
+Dentro de la lista son:
+
+* prueba y error
+* nivel de suavizado comparado con la fidelidad en los datos
+* minimizar el error de medio cuadrado
+* utilizar la validación cruzada

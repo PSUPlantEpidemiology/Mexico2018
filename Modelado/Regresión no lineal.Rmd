@@ -1,0 +1,158 @@
+---
+title: "Regresión no lineal"
+author: "Paul Esker"
+output:
+  html_document:
+    df_print: paged
+    fontsize: 11pt
+    geometry: margin=1in
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Antecedentes
+
+La regresión no lineal es método importante para poder estudiate el comporatmiento de procesos más complejos los cuales relacionan con la biología, la fisiología, etc. A continuación se mencionan algunos de los conceptos más importantes a considerar en el proceso de analizar los datos no lineales. Es proceso iterativo el cual significa que para poder ajustar el modelo se buscará los paramétros paso por paso.
+
+```{r paquetes}
+
+library(tidyverse)
+
+```
+
+
+## Datos
+
+Nuestro ejemplo pertenence a un ensayo en Costa Rica sobre el crecimiento del cultivo de cebolla en la zona norte de Cartago. El crecimiento fue estudiado por estimar la biomasa 
+
+En el trabajo original tres cultivares de cebolla fueron probados pero por el propósito del ejercicio solo vamos a utilizar uno de ellos. 
+
+* Nombre de los datos = Alvara (es el cultivar)
+* dds = días después de la siembra
+* gda = grados días acumulados con base en los umbrales para el cultivo de cebolla
+* psraiz = peso seco (gramos) en la raíz
+* psbulbo = peso seco (gramos) en los bulbos
+* psaereo = peso seco (gramos para la biomasa aérea)
+* pstotal = peso seco total considerando los demás componentes
+
+```{r datos}
+
+dds <- c(11, 18, 26, 33, 40, 47, 56, 61, 69, 82, 96, 111, 124)
+gda <- c(148, 233, 327, 410, 492, 575, 686, 746, 837, 993, 1158, 1335, 1484)
+psraiz <- c(0.04, 0.019, 0.113, 0.044, 0.045, 0.056, 0.08, 0.114, 0.109, 0.116, 0.098, 0.101, 0.066)
+psbulbo <- c(0.137, 0.166, 0.289, 0.2, 0.292, 0.298, 0.474, 0.416, 1.236, 2.594, 6.265, 6.174, 
+22.521)
+psaereo <- c(0.162, 0.191, 0.308, 0.243, 0.25, 0.343, 0.988, 0.962, 2.593, 3.379, 2.83, 5.054,
+2.748)
+pstotal <- c(0.34, 0.376, 0.711, 0.487, 0.587, 0.698, 1.542, 1.492, 3.938, 6.089, 9.193, 11.329,
+25.334)
+
+alvara <- data.frame(dds, gda, psraiz, psbulbo, psaereo, pstotal)
+
+```
+
+
+## Comportamiento preliminar 
+
+Grafícamente 
+
+```{r gráficos1}
+
+## Gráficos de los grados días acumulados y cada una de las mediciones
+
+with(alvara, plot(x=gda, y=psraiz, type="b", lty=1, lwd=2, pch=19, col="black"))
+with(alvara, plot(x=gda, y=psbulbo, type="b", lty=1, lwd=2, pch=19, col="black"))
+with(alvara, plot(x=gda, y=psaereo, type="b", lty=1, lwd=2, pch=19, col="black"))
+with(alvara, plot(x=gda, y=pstotal, type="b", lty=1, lwd=2, pch=19, col="black"))
+
+```
+
+
+## Modelos
+
+La selección de cualquier modelo depende de muchos factores en especial la relación entre las variables bajo estudio biológicamente. Ya se ha visto que en los datos de cebolla se presentaron dos tipos de curvas. La primera tenía forma que parece que el desarrollo fue de tal manera que en la primera parte el peso seco subió hasta un punto y después de este punto se equilibrió o se bajó. De alguna manera había forma de una campana. El segundo tipo de curva tenía forma más exponencial con un crecimiento más alto en la última fase del proceso justo antes de la cosecha. 
+
+Modelo 1. 
+
+$$ PS = \alpha * exp(-\beta * (gda-\gamma)^2)$$
+
+donde, PS es el peso seco (g), $\alpha$ es una medición del peso seco al inicio del periodo de evaluación (0 gda), $\beta$ es una medición del crecimiento, y $\gamma$ representa el punto de inflexión en el proceso. "gda" son los grados días acumulados. 
+
+Modelo 2. 
+
+$$ PS = X_0 * exp (K * gda) $$
+
+donde, PS es el peso seco (g), $X_0$ es la condición cuando no hubiese ninguna acumulación de unidades de calefacción, K es la tasa de crecimiento como una función de los grados días acumulados.
+
+En ambos casos es importante tener presente que el proceso de ajustar un modelo depende de las condiciones inciales de los paramétros debido a que es proceso iterativo para estimar los paramétros. Hay métodos diferentes para definrlos al principio del análisis. Algunos ejemplos de los métodos mencionados incluyen:
+
+* búsqueda por una matriz de posibles paramétros (se llama en inglés, "grid search") - aquí se busca la mejor combinación de los paramétros
+* con base en un análisis preliminar de datos parecidos
+* estimado funcional con base en la forma del modelo y conocimiento del proceso
+* algoritmo genético, https://es.wikipedia.org/wiki/Algoritmo_gen%C3%A9tico
+* también en R para algunos de los modelos existen algunas funciones que se llaman, "autoiniciar", para poder buscar los paramétros inciales (ver ejemplo aquí: http://www.apsnet.org/edcenter/advanced/topics/EcologyAndEpidemiologyInR/DiseaseProgress/Pages/NonlinearRegression.aspx)
+
+En nuestro ejemplos se aplicó el método (3) de la lista considerando lo de la fisología y análisis preliminares.
+
+## Modelo 1
+
+```{r modelo1}
+
+## Variable = peso seco raíz
+
+regnl1 <- nls(psraiz ~ alfa * exp(-beta*(gda-gama)^2), start=list(alfa = 0.15, beta = 0.0000002, gama = 900), trace=TRUE, data=alvara)
+summary(regnl1)
+
+## Predicciones
+
+regnl_pred <- predict(regnl1, data.frame(gda=seq(100,1500,25)))
+
+## Conjunto de datos de predicciones
+
+preddiciones <- data.frame(gda=seq(100,1500,25), pred=regnl_pred)
+
+## Gráfico
+
+ej1 <- ggplot() 
+ej1 +
+  geom_point(data=alvara, aes(x=gda, y=psraiz)) +
+  geom_line(data=preddiciones, aes(x=gda, y=pred), lty=1, lwd=1.5)
+               
+```
+
+## Modelo 2
+
+```{r Modelo2}
+
+## Variable = peso seco total 
+
+regnl2 <- nls(pstotal ~ x0 * exp(k * gda), start = list(x0=0.5, k=0.0002), trace=TRUE, data=alvara)
+summary(regnl2)
+
+## Predicciones
+
+regn2_pred <- predict(regnl2, data.frame(gda=seq(100,1500,25)))
+
+## Conjunto de datos de predicciones
+
+preddiciones <- data.frame(gda=seq(100,1500,25), pred=regn2_pred)
+
+## Gráfico
+
+ej1 <- ggplot() 
+ej1 +
+  geom_point(data=alvara, aes(x=gda, y=pstotal)) +
+  geom_line(data=preddiciones, aes(x=gda, y=pred), lty=1, lwd=1.5)
+
+```
+
+## Ejercicios
+
+Realizar los mismos análisis para las variables de peso seco bulbo y peso seco la parte aérea. 
+
+Para la variable de peso seco aéreo, se puede considerar las siguientes condiciones iniciales: start=list(alfa = 5, beta = 0.00002, gama = 1100).
+
+Para la variable de peso seco bulbo, se puede considerar las siguientes condiciones iniciales: start=list(x0 = 0.5, k = 0.0002).

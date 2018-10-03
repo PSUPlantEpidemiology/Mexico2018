@@ -1,0 +1,196 @@
+---
+title: "Modelado - regresión"
+author: "Paul Esker"
+output:
+  html_document:
+    df_print: paged
+    fontsize: 11pt
+    geometry: margin=1in
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Antecedentes
+
+En el ejemplo de *regresión múltiple* se vio que el modelo final podía haber sido uno de dos (tal vez, 3) opciones. Bajo el concepto de modelado de vez en cuando nos interesaría estudiar el comportamiento de una relación entre la variable dependiente $Y$ y las variables dependientes, es decir, los posibles diferentes factors, $X_i$. En este sentido los que se consideran son una gran gama de diferentes modelos y la gran pregunta es, "¿Cuál es la mejor manera, así como el mejor enfoque para modelar las posibles relaciones?"
+
+Por lo tanto en este ejercicio vamos a explorar algunos de los métodos diferentes que existen para realizar selección de modelo. 
+
+```{r paquetes}
+
+library(tidyverse)
+library(Hmisc)
+library(corrplot)
+library(readr)
+library(HH)
+library(car)
+library(scatterplot3d)
+library(leaps)
+  
+```
+
+## Datos
+
+Para este ejercicio siguimos utilizando los datos de áfidos. Nada ha cambiado en este sentido.
+
+```{r datos}
+
+lote <- c(1:34)
+afidos <- c(61, 77, 87, 93, 98, 100, 104, 118, 102, 74, 63, 43, 27, 19, 14, 23, 30, 25, 67, 40, 6, 21, 18, 23, 42, 56, 60, 59, 82, 89, 77, 102, 108, 97)
+temperatura <- c(21, 24.8, 28.3, 26, 27.5, 27.1, 26.8, 29, 28.3, 34, 30.5, 28.3, 30.8, 31, 33.6, 31.8, 31.3, 33.5, 33, 34.5, 34.3, 34.3, 33, 26.5, 32, 27.3, 27.8, 25.8, 25, 18.5, 26, 19, 18, 16.3)
+humedad <- c(57,48, 41.5, 56, 58, 31, 36.5, 41, 40, 25, 34, 13, 37, 19, 20, 17, 21, 18.5, 24.5, 16, 6, 26, 21, 26, 28, 24.5, 39, 29, 41, 53.5, 51, 48, 70, 79.5)
+
+afidos_base <- data.frame(lote, afidos, temperatura, humedad)
+
+```
+
+## Modelo básico
+
+Vamos a empezar con el siguiente modelo:
+
+$$áfidos = intercepto + temperatura + humedad + error$$
+
+Aunque se acabó el otro ejercicio considerando que el modelo con la interacción de los dos factores independientes fue un poco mejor, en esta situación vamos a considerar el modelo aditivo como la base de referencia porque todavía no estamos cien porciento claro que es "la interacción". También hay interés determinar si los dos factores juntos expliquen bien el desarrollo de los áfidos.
+
+```{r básico}
+
+modelo_a <- with(afidos_base, lm(afidos ~ temperatura + humedad))
+anova(modelo_a) # ambos factores = significativos
+summary(modelo_a) #R^2 = 0.55
+
+
+plot(modelo_a)
+plot(modelo_a, which=4) 
+
+```
+
+## Modelo más complejo
+
+Bueno en el ejercicio de *regresión múltiple* nos dimos cuenta que todavía no se había considerado que hubiese otros modelos que podrían ser útiles para explorar las relaciones. 
+
+Entonces para poder definir y comparar más modelos ahora lo que vamos a definir es primero el modelo más complejo (sin darse cuenta que posiblemente hubiese otras formas definir la relación, por ejemplo, por un modelo no lineal).
+
+Modelo B: $áfidos = intercepto + temperatura + humedad + temperatura^2 + humedad^2 + temperatura:humedad$
+
+Este modelo asume que los efectos de la temperatura y de la humadad tienen formas que no son exactamente lineales (volver a verse los gráficos en el ejercicio de regresión múltiple). Por lo tanto el modelo cuenta con cada uno de los efectos independientes, las formas respetivas cuadráticas (con base en el uso de una función de indicador, $I$) y la interacción entre los dos factores.
+
+```{r complejo}
+
+modelo_b <- with(afidos_base, lm(afidos ~ temperatura + humedad + I(temperatura^2) + I(humedad^2) + temperatura:humedad))
+anova(modelo_b) # factores significativos: temperatura, humedad, I(temperatura^2)
+summary(modelo_b) #R^2 = 0.63
+
+plot(modelo_b)
+plot(modelo_b, which=4)
+
+```
+
+## Comparación de los primeros dos modelos
+
+```{r comparación}
+
+anova(modelo_a, modelo_b) #Resulta es que el modelo más complejo no se mejoró lo de la relación, es decir que probablemente es un modelo sobre ajustado
+
+```
+
+## Modelado: tres métodos bajo consideración
+
+Ahora vamos a examinar algunos de los métodos que existen para realizar una comparación de modelos de manera más automática. La idea en esta parte del ejercicio es minimizar la necesidad de redactar muchos modelos y duplicar lo mismo en cada paso. Esto significa que lo más importante es determinar dentro de las factores en estudio cuales sean más importantes y de ahí se puede estudiar el comportamiento del modelo para poder explicar la variable dependiente. 
+
+Los tres métodos que se usan en esta sección:
+* Método manual
+* Método por pasos ("steps")
+* Método por mejores subconjuntos ("best subsets")
+
+
+```{r modelado1}
+
+# Construcción del modelo de manera manual
+# Primero vamos a considerar el modelo b
+
+# El proceso será reducir el modelo factor por factor, revisando el cambio en el ajuste del modelo (es decir, el signficado)
+
+
+# Eliminar el factor de: Temperatura:Humedad
+modelo_b2 <- update(modelo_b, .~.-temperatura:humedad)
+summary(modelo_b2)
+anova(modelo_b, modelo_b2) ## resulta es que el factor temperatura:humedad = no significativo
+
+# Ahora vamos a eliminar el factor I(humedad^2 del modelo b2)
+modelo_b3 <- update(modelo_b2, .~.-I(humedad^2))
+summary(modelo_b3) # todos los factores parecen tener algo explicativo
+
+anova(modelo_b2, modelo_b3) # I(humedad^2) = no significativo
+anova(modelo_a, modelo_b3) ## esta alrededor de 0,05 (tiene valor predictivo)
+
+modelo_b4 <- update(modelo_b3, .~.-I(temperatura^2))
+anova(modelo_b4)
+summary(modelo_b4)
+anova(modelo_b3, modelo_b4) 
+
+# Se puede continuar eliminando los factores principales pero ya sabemos que cada uno de ellos tiene algo de valor predictivo
+
+# Considerando el resultado, creo que lo mejor sería continuar con el modelo b3
+
+```
+
+## Modelado por pasos automáticos
+
+Ahora vamos a realizar el mismo ejercicio pero por el uso de la función *step()*.
+
+Para hacer esta parte primero necesitamos definir tanto el modelo nulo como el modelo completo (más grande, digamos). De ahí vamos a realizar el proceso utilizando:
+1. El método hacía adelante
+2. El método hacia atrás
+3. El método en ambas direcciones ("ambos sentidos")
+
+```{r pasos}
+
+nulo <- lm(afidos~1, data=afidos_base)
+completo <- modelo_b
+
+# E
+adelante <- step(nulo, scope=list(lower=nulo, upper=completo, direction="forward")) ##hacia adelante
+atras <- step(modelo_b) # hacia atrás, por defecto basándose en el modelo inicial
+step(modelo_b, direction="backward") #hacía atrás
+ambos <- step(modelo_b, direction="both") #en ambas direcciones
+
+```
+
+## Modelo por mejores subconjuntos
+
+En la última parte del ejercio ahora lo que vamos a crear son modelos considerando los mejores subconjuntos de modelos. En el paquete *leaps* podemos aprovechar la función regsubsets (subconjuntos de regresión) y definir el número de modelos subconjuntos de cada tamaño a considerar. Este método no nos da una respuesta como tal sino lo que sería el mejor modelo. Con esta información ya podemos volver a definir el modelo y estudiar el compartamiento en la relación.
+
+```{r subconjuntos}
+
+# regsubsets = paquete *leaps*
+
+subconjuntos <- regsubsets(afidos~temperatura+humedad+I(temperatura^2)+
+I(humedad^2)+temperatura:humedad, nbest=3, data=afidos_base)
+
+plot(subconjuntos, scale="adjr2")
+plot(subconjuntos, scale="bic")
+plot(subconjuntos, scale="Cp")
+
+```
+
+## Resumen
+
+Se sabe que el modelado no es actividad fácil. Necesitamos integrar muchos conceptos tantos aquellos matemáticos y estadísticos como los biologícos y agronómicos. También al tener confianza en manejar los modelos es una habilidad importante para poder explicar lo que significa el modelo a un productor, a otra científica, etc. 
+
+¿Cuál es el mejor método modelar las relaciones observadas? 
+
+Según Gelman y Hall (2007; *Data Analysis Using Regression and Multilevel/Hierarchical Models*):
+
+1. Incluir todas las variables que podrían predecir algo sobre la variable dependiente.
+2. No todas las variables predictivas tiene que entrar al modelo de manera individual. Se puede considerar una seríe de variables promediadas o sumadas para crear un "valor combinado" (se ve como índice).
+3. Para las variables predictivas con efectos grandes, vale la pena considerarse la inclusión de un término que representa las interacciones entre aquellas variables.
+4. Una estrategía para tomar decisiones sobre la inclusión de una variable:
+* si el predictor no sea significativo estadísticamente pero tiene la dirección esperada (el signo esperado), por lo general se puede mantener en el modelo debido a que mientras que no se afecta las predicciones tampoco no está ocasionando algún asunto con el modelo.
+* si el predictor no sea significativo estadísticamente y no tiene la dirección esperada, se puede considerar la elminación del modelo. 
+* si el predictor sea significativo estadísticametne pero no tiene la dirección esperada, hay que pensar cuidosamente si este factor tiene sentido. Piénselo en variables de confusión en estos casos (en inglés: confounding variables, lurking variables).
+* si el predictor sea significativo estadístamente con la dirección esperada, obviamente hay que mantenerlo en el modelo.
+
+Muy importante es que los métodos mencionados anteriormente no resuelvan todos los asuntos de modelado pero ojalá nos ayuda minimizar los errores que podrían ser cometidos en el análisis e interpretación de datos. 
