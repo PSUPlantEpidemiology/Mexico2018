@@ -1,0 +1,112 @@
+---
+title: "Resumen de datos"
+author: "Paul Esker"
+output:
+  html_document:
+    df_print: paged
+    fontsize: 12pt
+    geometry: margin=1in
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+## Antecedentes
+
+El objetivo con este ejercicio es aprovechar las opciones que existen en el paquete de dplyr para resumir conjuntos de datos. En nuestro ejemplo, vamos a utilizar una base de datos que contiene los siguientes componentes:
+
+* Tratamiento = son las combinaciones de dos tratamientos, fungicida y dosis
+* Fungicida = había 8 diferentes fungicidas o combinaciones de ingredientes activos
+* Dosis = había tres niveles diferentes de cada fungicida
+* Rep = en cada caso había 3 repeticiones de cada uno de los tratamientos
+* Enf2 = fue una medición de la intensidad de una enfermendad foliar
+
+En el experimento original el diseño experimental fue de bloques completos al azar.
+
+```{r paquetes}
+
+library(tidyverse) 
+library(purrr)
+library(dplyr)
+library(magrittr)
+library(Hmisc)
+
+```
+
+## Crear el conjunto de datos
+
+```{r datos}
+Tratamiento <- factor(rep(1:27, each=3))
+Fungicida <- factor(rep(1:9, each=9))
+Dosis <- factor(rep(1:3, each=3, times=9))
+Rep <-factor(rep(1:3, times=27))
+Incidencia <- c(3,4,5,0,2,3,0,5,5,5,4,3,3,2,4,5,4,5,5,7,5,0,7,5,6,5,4,0,5,5,0,4,0,0,3,2,0,5,5,0,4,5,5,4,5,0,2,5,5,5,2,5,5,4,3,5,4,5,5,5,5,5,0,5,4,5,3,5,0,0,5,4,0,5,2,3,5,5,0,4,2)
+Rendimiento <- c(4548,5326,4715,5129,5513,4642,5359,5133,4792,5265,5008,5304,5514,5531,5183,5412,5199,5491,5727,5437,5206,5452,5258,5280,5375,4825,5558,5535,5557,5692,5758,5285,5450,5185,5659,5759,5303,5049,5099,5658,5374,5335,5451,5581,5400,5439,5068,5085,5800,4904,5206,5947,4868,5126,5511,5266,5368,5662,5273,5274,5102,5450,5426,5726,5278,5581,5100,5335,5744,5396,5018,5626,6162,5548,5371,5232,5349,5264,5771,5408,5595)
+
+trigo<-data.frame(Tratamiento,Fungicida,Dosis,Rep,Incidencia,Rendimiento)
+
+head(trigo)
+str(trigo)
+
+```
+
+## Resúmenes estadísticos
+
+En esta parte vamos a aplicar algunos de los conceptos de *tidyverse* para resumir la base de datos de trigo. El objetivo es crear una función para realizar los cálculos de una seríe de estadísticas más importantes y comúnes. En particular se enfocará en los métodos para realizar los cálculos de la media, la desviación estándard y el coeficiente de variación. 
+
+```{r resumenes}
+
+#Considerando el factor de *fungicida*
+
+fungicida <- trigo %>% group_by(Fungicida)
+fungicida %>% str() #Es para enseñarles que el conjunto de datos no se ve diferente a el original pero se da otra información sobre la lista
+fungicida %>% summarise(
+  Inc_media = mean(Incidencia),
+  Inc_sd = sd(Incidencia),
+  Inc_cv = sd(Incidencia)/mean(Incidencia)*100,
+  Rend_media = mean(Rendimiento),
+  Rend_sd = sd(Rendimiento),
+  Rend_cv = Rend_sd/Rend_media*100 
+)
+
+#Considerando el factor de *dosis*
+
+dosis <- trigo %>% group_by(Dosis)
+dosis %>% str() #Es para enseñarles que el conjunto de datos no se ve diferente a el original pero se da otra información sobre la lista
+dosis %>% summarise(
+  Inc_media = mean(Incidencia),
+  Inc_sd = sd(Incidencia),
+  Inc_cv = sd(Incidencia)/mean(Incidencia)*100,
+  Rend_media = mean(Rendimiento),
+  Rend_sd = sd(Rendimiento),
+  Rend_cv = Rend_sd/Rend_media*100 
+)
+
+#Considerando la interacción entre los dos factores
+
+fung_dosis <- trigo %>% group_by(Fungicida, Dosis)
+fung_dosis %>% str() #Es para enseñarles que el conjunto de datos no se ve diferente a el original pero se da otra información sobre la lista
+fung_dosis %>% summarise(
+  Inc_media = mean(Incidencia),
+  Inc_sd = sd(Incidencia),
+  Inc_cv = sd(Incidencia)/mean(Incidencia)*100,
+  Rend_media = mean(Rendimiento),
+  Rend_sd = sd(Rendimiento),
+  Rend_cv = Rend_sd/Rend_media*100 
+)
+
+
+
+```
+
+## Exportar el conjunto de datos resumidos
+
+En R se puede aplicar la función write_csv(), o equivalente, con el fin de exportar el conjunto de datos originales, resumidos o cómo sea. Muy importante con este proceso es definir la ubicación de la carpeta en donde se va a exportar. Considerando el tiempo disponible y el proposito del taller si le interesa saber más sobre estas funciones se puede poner en contacto con el Profesor. 
+
+## Resumen 
+
+Obviamente se pueden realizar cualquier cantidad de otros cálculos de importancia. El objetivo en este ejercicio fue nivelar el conocimiento de los participantes. En las sesiones que vienen, vamos a tocar temas diferentes que requieren una extensión de los conceptos mencionados en esta sección.  
+
