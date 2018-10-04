@@ -1,0 +1,11 @@
+En este documento se le proporciona información general para poder aprovechar la documentación que está disponible en las carpetas. Muy important a tomar en cuenta es la manera de acceder y descargar los archivos de cada una de las carpetas. 
+
+La documentación disponible incluye:
+
+1. Carpeta con los ejemplos y ejercicios introductorios (uso de R, ejemplos básicos).
+2. Carpeta con los ejemplos y ejercicios de modelado. 
+3. Carpeta con los conjuntos de datos. Cada archivo tiene el formato de .csv (separados por comas). 
+
+Para los participantes en el programa, también para cualquier persona interesada a continuación son las instrucciones para descargar los documentos. En cada carpeta son dos archivos para cada uno de los ejemplos. Uno es la programación en formato de .Rmd (RMarkdown). El segundo es la salida de los resultados en formato de .html. 
+
+Para cualquier consulta o pregunta no lo dude en contactarnos.
