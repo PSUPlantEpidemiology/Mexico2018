@@ -1,0 +1,42 @@
+---
+title: "Paquetes contribuidos"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Antecendentes
+
+Para simplificar la descarga de paquetes contribuidos por parte de expertos a continuación se aplicará la función "install.packages". Durante el taller y depende del tipo de ejemplo se utilizarán paquetes diferentes. 
+
+```{r instalar}
+
+
+chooseCRANmirror(ind=48)
+
+# Cuantos paquetes están en el sistema de CRAN???
+ej <- available.packages()
+head(rownames(ej), 10)
+length(ej[,1]) #13,694
+
+install.packages("tidyverse")
+install.packages("Hmisc")
+install.packages("corrplot")
+install.packages("readr")
+install.packages("HH")
+install.packages("car")
+install.packages("scatterplot3d")
+install.packages("leaps")
+install.packages("purr")
+install.packages("dplyr")
+install.packages("magritter")
+install.packages("readxl")
+install.packages("drc")
+install.packages("cowplot")
+
+```
+
